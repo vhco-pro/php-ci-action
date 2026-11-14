@@ -34,14 +34,14 @@ const cases: Probe[] = [
   { name: "style", mode: "style", path: "src/Greeting.php", text: "<?php echo 'style fixture';", expected: "ERROR" },
   { name: "types", mode: "types", path: "src/Greeting.php", text: "<?php namespace VHCO\\Fixture; final class Greeting { public static function message(string $name): string { return []; } }", expected: "should return string" },
   { name: "assertion", mode: "tests", path: "tests/GreetingTest.php", text: readFileSync(join(source, "tests/GreetingTest.php"), "utf8").replace("'Hello world'", "'wrong'"), expected: "FAILURES" },
-  { name: "cross-function-taint", mode: "psalm", path: "src/Unsafe.php", text: "<?php function showName(string $name): void { echo $name; } showName($_GET['name']);", expected: "TaintedHtml" },
+  { name: "cross-function-taint", mode: "psalm", path: "src/Unsafe.php", text: "<?php function showName(string $name): void { echo $name; } $name = $_GET['name'] ?? ''; if (is_string($name)) { showName($name); }", expected: "TaintedHtml" },
   { name: "escaped-path", mode: "semgrep", path: "src/Unsafe.php", text: "<?php file_get_contents(htmlspecialchars($_GET['path']));", expected: "php-request-path" },
   { name: "secret", mode: "secrets", path: "src/fixture-secret.txt", text: `token = "${token}"`, expected: "leaks found" },
   { name: "nested-vendor-secret", mode: "secrets", path: "src/vendor/Secret.php", text: `<?php $token = "${token}";`, expected: "leaks found" },
   { name: "historical-secret", mode: "secrets", path: "src/vendor/Secret.php", text: `<?php $token = "${token}";`, history: true, expected: "leaks found" },
   { name: "empty-tests", mode: "tests", path: "phpunit.xml.dist", empty: true, text: '<phpunit><testsuites><testsuite name="Empty"><directory>empty</directory></testsuite></testsuites></phpunit>', expected: "No tests executed" },
   { name: "empty-analysis", mode: "psalm", path: "psalm.xml", empty: true, text: '<psalm xmlns="https://getpsalm.org/schema/config" errorLevel="1"><projectFiles><directory name="empty"/></projectFiles></psalm>', expected: "No files analyzed" },
-  { name: "safe-html", mode: "psalm", path: "src/Safe.php", text: "<?php function showName(string $name): void { echo htmlspecialchars($name, ENT_QUOTES); } showName($_GET['name']);", safe: true },
+  { name: "safe-html", mode: "psalm", path: "src/Safe.php", text: "<?php function showName(string $name): void { echo htmlspecialchars($name, ENT_QUOTES); } $name = $_GET['name'] ?? ''; if (is_string($name)) { showName($name); }", safe: true },
 ];
 
 function git(project: string, args: string[]): void {
