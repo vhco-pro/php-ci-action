@@ -61,9 +61,9 @@ test("rejects empty coverage, unknown extensions and configuration escapes", () 
 
 test("dispatches every checker with separate arguments", async () => {
   const commands: string[][] = [];
-  const runner: CommandRunner = async command => {
+  const runner: CommandRunner = command => {
     commands.push(command);
-    return { exitCode: 0, stdout: "", stderr: "" };
+    return Promise.resolve({ exitCode: 0, stdout: "", stderr: "" });
   };
   for (const mode of ["syntax", "style", "types", "tests", "psalm", "audit"] as const) {
     await check(mode, validate(environment), runner);
@@ -71,28 +71,30 @@ test("dispatches every checker with separate arguments", async () => {
   expect(commands.filter(command => command[1] === "-l")).toHaveLength(2);
   expect(commands.some(command => command.includes("--taint-analysis"))).toBe(true);
   expect(commands.some(command => command.includes("--locked") && !command.includes("--no-dev"))).toBe(true);
-  expect(commands.find(command => command[0].endsWith("phpcs"))?.includes(join(workspace, "nested project", "phpcs.xml.dist"))).toBe(true);
+  expect(commands.find(command => command[0]?.endsWith("phpcs"))?.includes(join(workspace, "nested project", "phpcs.xml.dist"))).toBe(true);
 });
 
 test.each(["syntax", "style", "types", "tests", "psalm", "audit"] as const)("%s blocks on command failure", async mode => {
-  await expect(check(mode, validate(environment), async () => ({ exitCode: 1, stdout: "", stderr: "fixture failure" }))).rejects.toThrow();
+  // eslint-disable-next-line @typescript-eslint/await-thenable -- Bun rejects matchers return a promise at runtime.
+  await expect(check(mode, validate(environment), () => Promise.resolve({ exitCode: 1, stdout: "", stderr: "fixture failure" }))).rejects.toThrow();
 });
 
 test("Semgrep requires every owned PHP file, clean parser results and zero findings", async () => {
   const config = validate(environment);
   const good = { results: [], errors: [], paths: { scanned: config.phpFiles } };
-  await check("semgrep", config, async () => ({ exitCode: 0, stdout: JSON.stringify(good), stderr: "" }));
+  await check("semgrep", config, () => Promise.resolve({ exitCode: 0, stdout: JSON.stringify(good), stderr: "" }));
   for (const report of [
     { ...good, errors: [{ type: "ParseError" }] },
     { ...good, results: [{ check_id: "fixture" }] },
     { ...good, paths: { scanned: [] } },
   ]) {
-    await expect(check("semgrep", config, async () => ({ exitCode: 0, stdout: JSON.stringify(report), stderr: "" }))).rejects.toThrow();
+    // eslint-disable-next-line @typescript-eslint/await-thenable -- Await the asynchronous Bun rejects matcher.
+    await expect(check("semgrep", config, () => Promise.resolve({ exitCode: 0, stdout: JSON.stringify(report), stderr: "" }))).rejects.toThrow();
   }
 });
 
 test("release composition uses shared GitVersion after checks and dry-runs PRs", () => {
-  const workflow = Bun.YAML.parse(readFileSync(join(import.meta.dir, "../.github/workflows/release.yml"), "utf8")) as any;
+  const workflow = Bun.YAML.parse(readFileSync(join(import.meta.dir, "../.github/workflows/release.yml"), "utf8")) as { jobs: { release: { needs: string; uses: string; with: Record<string, string> } } };
   expect(workflow.jobs.release.needs).toBe("test");
   expect(workflow.jobs.release.uses).toMatch(/^vhco-pro\/gh-release-workflow\/.github\/workflows\/gh-release.yml@[0-9a-f]{40}$/);
   expect(workflow.jobs.release.with["dry-run"]).toContain("pull_request");

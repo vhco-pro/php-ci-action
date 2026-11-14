@@ -13,6 +13,9 @@ covers:
   - composer.json
   - composer.lock
   - package.json
+  - tsconfig.json
+  - eslint.config.mjs
+  - .gitignore
   - bun.lock
   - README.md
   - AGENTS.md
@@ -198,7 +201,8 @@ pins for review, keeping CI verification and publication authority distinct.
 
 - [x] T1 `tests/ci.test.ts`, `tests/fixture/` - observe failures for absent input validation, checker dispatch, scanner outcomes and shared release wiring (AC-01, AC-02, AC-03, AC-04, AC-08)
   - Evidence: `bun test tests/ci.test.ts` failed on the absent `scripts/ci` module. Baseline output is retained at `/tmp/php-ci-t1-baseline-20261114.log`.
-- [ ] T2 `action.yml`, `scripts/`, `package.json` - pass the input and command contract tests with patched runtime setup and all required checks (AC-01, AC-02, AC-03, AC-04, AC-05)
+- [x] T2 `action.yml`, `scripts/`, `package.json` - pass the input and command contract tests with patched runtime setup and all required checks (AC-01, AC-02, AC-03, AC-04, AC-05)
+  - Evidence: strict TypeScript checks, typed ESLint and all 17 input/checker unit contracts passed. The release-composition contract remains the T3 verification. Compiler 6.0.3 satisfies typescript-eslint's declared supported range.
 - [ ] T3 `.github/workflows/`, `.github/renovate.json`, `examples/` - run real Linux composite fixtures on both patched runtimes, prove updater discovery and run shared GitVersion dry-run after checks (AC-01, AC-02, AC-03, AC-04, AC-05, AC-08)
 - [ ] T4 `README.md`, `AGENTS.md`, `tests/` - record native consumer inputs, compatibility and failure evidence and verify examples match the composite (AC-06, AC-07)
 - [ ] T5 `docs/specs/php-ci.md` - obtain independent implementation review, repair findings and push the reviewed PR with exact-head CI (AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-08)
