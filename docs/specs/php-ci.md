@@ -18,6 +18,7 @@ covers:
   - .gitignore
   - bun.lock
   - README.md
+  - docs/usage.md
   - AGENTS.md
   - LICENSE
 ---

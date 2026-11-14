@@ -102,3 +102,15 @@ test("release composition uses shared GitVersion after checks and dry-runs PRs",
   expect(workflow.jobs.release.uses).toMatch(/^vhco-pro\/gh-release-workflow\/.github\/workflows\/gh-release.yml@[0-9a-f]{40}$/);
   expect(workflow.jobs.release.with["dry-run"]).toContain("pull_request");
 });
+
+
+test("complete example supplies only declared inputs and all required inputs", () => {
+  const action = Bun.YAML.parse(readFileSync(join(import.meta.dir, "../action.yml"), "utf8")) as { inputs: Record<string, { required?: boolean }> };
+  const example = Bun.YAML.parse(readFileSync(join(import.meta.dir, "../examples/standalone/ci.yml"), "utf8")) as { jobs: { php: { steps: { uses?: string; with?: Record<string, unknown> }[] } } };
+  const step = example.jobs.php.steps.find(item => item.uses?.startsWith("vhco-pro/php-ci-action@"));
+  expect(step).toBeDefined();
+  for (const input of Object.keys(step?.with ?? {})) expect(action.inputs).toHaveProperty(input);
+  for (const [name, input] of Object.entries(action.inputs)) {
+    if (input.required) expect(step?.with).toHaveProperty(name);
+  }
+});
