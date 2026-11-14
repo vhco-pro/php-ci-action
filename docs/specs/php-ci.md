@@ -1,6 +1,6 @@
 ---
 status: draft
-status_description: "Shared PHP CI design awaiting independent review and owner acceptance."
+status_description: "Reviewed draft awaiting owner choices on v1 runners and security analysis."
 issue: null
 goal: "PHP consumers run reproducible blocking quality and security checks through one free-tool composite action."
 covers:
@@ -78,10 +78,28 @@ The caller supplies checkout and read-only job permissions. The action executes 
 selected working directory, resolves its own scripts from `github.action_path` and supports running
 from a nested directory in a separate checkout. The caller's credentials remain outside diagnostics.
 
-Expose an explicit supported PHP version, required extensions, working directory and the paths of the
-consumer's coding-standard, static-analysis, unit-test and source-security configurations. Keep defaults
-consistent with the shared PHP conventions. Document the exact accepted input grammar and reject unsafe
-or missing inputs. Pass input values through environment variables or argument vectors.
+The proposed v1 runtime matrix is PHP 8.4 and 8.5 on Ubuntu 24.04, subject to Q1. Require an exact
+supported PHP patch version as `php-version`. Tool compatibility is verified against each selected
+matrix runtime. The action provides these inputs.
+
+| Input | Contract |
+| --- | --- |
+| `working-directory` | Defaults to `.`. An existing directory inside the caller checkout. Resolve it once and reject traversal or symlink escapes. |
+| `php-version` | Required exact `major.minor.patch` version in a supported minor series. Reject branch/channel expressions. |
+| `extensions` | Optional comma-separated PHP extension identifiers. Pass the parsed allowlisted identifiers to the selected runtime setup component. |
+| `php-paths` | Newline-separated source/test directories relative to the working directory, defaulting to `src` and `tests`. Preserve spaces within a line. Require existing owned paths with at least one PHP file. |
+| `phpcs-config` | Defaults to `phpcs.xml.dist`, an existing project-relative file. |
+| `phpstan-config` | Defaults to `phpstan.neon`, an existing project-relative file. |
+| `phpunit-config` | Defaults to `phpunit.xml.dist`, an existing project-relative file. |
+| `security-config` | Required existing project-relative rules/config file for the security analyzer selected in Q2. |
+| `gitleaks-config` | Optional existing project-relative configuration. An omitted value uses the pinned scanner's default rules. |
+| `secret-scan-base` | Optional full commit SHA. When supplied it must exist and be an ancestor of HEAD. The Git scan covers `base..HEAD`. An omitted value scans HEAD's complete reachable ancestry. |
+
+All path inputs resolve inside the consumer boundary. Pass values through environment variables or
+argument vectors. Reject missing inputs, control characters and unsupported input syntax before tool
+execution. The action exposes `php-version` with the actual interpreter's resolved version after setup.
+Checks report status through their normal action steps and sanitized logs. No aggregate success output
+is created for a failed run.
 
 Use Composer's committed lock file to install the selected compatible PHP_CodeSniffer, PHPStan and
 PHPUnit versions. Validate manifest/lock consistency and the actual interpreter/extensions. Reuse an
@@ -90,10 +108,10 @@ come from the checked consumer configurations. Syntax checking covers every owne
 
 The source-security analyzer and secret scanner use free CLI implementations with compatible licenses
 for use in this reusable action. Verify their actual PHP syntax support, selected rules, sources/sinks,
-limits and finding/error exit behavior before adoption. A compatible Psalm taint-analysis setup or
-Semgrep CE setup satisfies the source-security role when its configured coverage is proved. Gitleaks
-can satisfy the secret-scanning role. Select one source-security implementation for v1 and retain that
-choice, exact versions, licenses and rule provenance in its own checked tool configuration. An included
+limits and finding/error exit behavior before adoption. Q2 selects the v1 analyzer, with Semgrep CE as the recommendation already exercised in the plugin.
+The analyzer uses the required consumer `security-config`, with the tool installation and invocation
+owned by the shared action. Gitleaks supplies secret scanning. Retain the selected tools, exact versions,
+licenses and rule provenance in checked configuration. An included
 ruleset needs its own license and attribution assessment.
 
 Keep tool pins in manifests read by the configured updater or its explicit custom manager. Install from
@@ -109,14 +127,17 @@ Run `composer audit --locked` including development and transitive dependencies.
 findings visible with their reviewed dispositions. The consumer's native package manager audits runtime
 dependencies outside Composer.
 
-Run source-security rules against the intended owned PHP files. Run redacted secret scanning over the
-declared checkout/history range. Document history requirements and detect an insufficient checkout for
-the selected range. Keep fixtures synthetic and exact allowlists reviewable. Scan checked source and
+Run source-security rules against `php-paths` and report parser or exclusion gaps. Run redacted secret
+scanning over the declared Git range and the selected working tree, with project rules documenting
+exclusions for dependencies and synthetic fixtures. Require complete Git ancestry when scanning full
+history and sufficient history to resolve the selected base for a bounded scan. Reject an insufficient
+checkout before claiming the range was scanned. Keep fixtures synthetic and exact allowlists reviewable. Scan checked source and
 report the selected Git range and files. Retain sanitized results under a documented owned temporary
 path. Keep report retention and upload under the caller's explicit workflow control.
 
-Each required check's execution failure blocks the job. Findings fail according to the declared policy,
-with narrow independently reviewed exceptions. Empty rules, missing tools, parser failures, unreachable
+Each required check's execution failure blocks the job. Every source-security and secret finding and
+every Composer advisory or abandoned-package policy failure blocks by default. A consumer exception
+requires an exact checked configuration entry with a reason and independent review. Empty rules, missing tools, parser failures, unreachable
 advisory services and unexpectedly empty owned-file coverage produce failed or incomplete verification.
 A scanner's zero exit alone cannot establish its expected coverage. Verify a known synthetic positive
 and clean negative when introducing the scanner and pin its relevant flags.
@@ -163,13 +184,53 @@ None yet. Tasks follow reviewed owner acceptance.
 
 ## Open Questions
 
-None. The owner will review the proposed v1 interface and Linux scope before acceptance. Public visibility
-and the first release remain later publication decisions.
+### Q1: Which runner platforms should the first release support?
+
+**Recommendation:** A. Start with Ubuntu 24.04 and PHP 8.4/8.5, including the actual plugin consumer.
+
+| Option | You get | It costs |
+| --- | --- | --- |
+| **A. Linux first** | A tested Linux interface and both supported PHP minor series | macOS would need a later support decision |
+| **B. Linux and macOS** | Both runner platforms in the first supported matrix | Additional tool-installation and scanner tests on macOS |
+
+**Why this is yours:** The owner requested a shared action and free tools. The initial runner-platform
+promise affects the supported consumer scope.
+
+### Q2: Which free PHP security analyzer should the first release use?
+
+**Recommendation:** A. Use Semgrep CE with pinned, reviewed PHP rules and explicit single-function limits.
+
+| Option | You get | It costs |
+| --- | --- | --- |
+| **A. Semgrep CE** | Reuses the analyzer exercised by the plugin and consumer-owned rules | Rule selection and review, with single-function data-flow limits |
+| **B. Psalm taint analysis** | PHP-specific analysis across function boundaries | Another Composer analyzer and framework source/sink configuration |
+
+**Why this is yours:** Both meet the free-tool requirement and create different coverage and maintenance
+commitments. The selected implementation becomes the first action's interface.
+
+Public visibility and the first release remain later publication decisions.
 
 ## Review Log
 
 | Date | Review | Kind | Commit | Model | Isolation | Outcome |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-11-14 | R-1 | spec | `574ab52b016d810b3c9a28a9b2a741ffbad22ba9` | unknown | procedural | Interface and blocking policy clarified. Runner and analyzer choices await owner decisions. Model identity not attested. |
+
+### R-1
+
+FINDING: F-01
+KIND: factual
+SEVERITY: should-fix
+WHERE: Design / Component and interface; Acceptance Criteria / AC-01, AC-03, AC-04; Test Plan
+EVIDENCE: At 574ab52b016d810b3c9a28a9b2a741ffbad22ba9, docs/specs/php-ci.md lines 81-97 defer the input grammar, defaults, supported PHP versions and selected security implementation. Lines 112-120 refer to a declared scan range and finding policy without defining their inputs or default behavior. The test plan asserts runtime, outputs and documented inputs, while the design declares no output contract. Two implementations could expose incompatible interfaces, scan different Git ranges and apply different finding policies while satisfying the current criteria.
+PROPOSAL: Define a small v1 input/output contract, supported runtime/runner boundary, default scan scope and blocking policy before acceptance. Name the selected security analyzer and its configuration ownership, or record the concrete selection decision in Open Questions.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Context / Owner summary; Open Questions
+EVIDENCE: The Owner summary proposes Linux-only initial support, and Design allows a choice between Psalm and Semgrep CE. Open Questions says None while stating that the owner will review the proposed interface and Linux scope before acceptance. The pinned conventions/feature-documents.md Open questions section requires unsettled trade-offs to appear as owner questions and defines None as every question having been answered. The current owner instruction establishes a reusable VHCO action and free pipeline tooling, without choosing these additional boundaries.
+PROPOSAL: Present the remaining consequential v1 scope and tool-selection choices in the required concise question format, with a recommendation and costs. Fold the owner's answers into the design before recording acceptance.
 
 ## Sources
 
