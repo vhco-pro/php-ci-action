@@ -14,7 +14,9 @@ Consumer-specific platform setup and native integration tests belong in consumer
 Keep substantial logic in versioned scripts and tool settings in their owning configuration.
 Use Apache-2.0 for this shared component under VH & Co BV.
 
-The repository begins with a feature specification. Implementation follows reviewed owner acceptance.
-Record executable verification commands after observing them.
+The accepted PHP CI implementation is on its claimed feature branch.
+For TypeScript scripts and tests, also read conventions/typescript.md at the pinned revision.
+Run `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint` and `bun run test`.
+Integration CI verifies the real composite, free scanners and shared GitVersion dry run.
 Credentials and runtime evidence remain outside source Git.
 The owner authorizes prompt documentation-only branch pushes. Merge and release need their own approval.

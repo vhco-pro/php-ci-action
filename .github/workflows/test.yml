@@ -1,0 +1,46 @@
+name: Test PHP CI
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  scripts:
+    runs-on: ubuntu-24.04
+    outputs:
+      versions: ${{ steps.matrix.outputs.versions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.3'
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - id: matrix
+        run: bun scripts/ci.ts matrix
+  composite:
+    needs: scripts
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJSON(needs.scripts.outputs.versions) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: component
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare a consumer path containing spaces
+        run: cp -a component/tests/fixture "component/consumer fixture"
+      - uses: ./component
+        with:
+          working-directory: component/consumer fixture
+          php-version: ${{ matrix.php }}
+          semgrep-config: security.yml
+      - name: Prove real checker failures
+        env:
+          PHP_CI_TEST_VERSION: ${{ matrix.php }}
+          PHP_CI_FIXTURE: ${{ github.workspace }}/component/consumer fixture
+        run: bun component/tests/probe.ts

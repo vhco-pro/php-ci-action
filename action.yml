@@ -1,0 +1,130 @@
+name: PHP CI
+description: Run blocking PHP quality checks, taint analysis, dependency audits and secret scans with free tools.
+inputs:
+  working-directory:
+    description: PHP project directory inside the caller checkout.
+    default: .
+  php-version:
+    description: Exact patched PHP version supported by this action revision.
+    required: true
+  extensions:
+    description: Additional comma-separated PHP extension identifiers.
+    default: ''
+  php-paths:
+    description: Newline-separated owned source and test paths.
+    default: |-
+      src
+      tests
+  phpcs-config:
+    description: Project-relative coding-standard file.
+    default: phpcs.xml.dist
+  phpstan-config:
+    description: Project-relative PHPStan file.
+    default: phpstan.neon
+  phpunit-config:
+    description: Project-relative PHPUnit file.
+    default: phpunit.xml.dist
+  psalm-config:
+    description: Project-relative Psalm taint-analysis file.
+    default: psalm.xml
+  semgrep-config:
+    description: Project-relative local Semgrep security rules file.
+    required: true
+  gitleaks-config:
+    description: Optional project-relative Gitleaks configuration.
+    default: ''
+  secret-scan-base:
+    description: Optional full ancestor SHA. Empty scans complete HEAD ancestry.
+    default: ''
+outputs:
+  php-version:
+    description: Resolved installed PHP version.
+    value: ${{ steps.php.outputs.php-version }}
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: '1.4.3'
+    - name: Validate project and patched runtime
+      id: inputs
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        INPUT_PROJECT: ${{ inputs.working-directory }}
+        INPUT_PHP: ${{ inputs.php-version }}
+        INPUT_EXTENSIONS: ${{ inputs.extensions }}
+        INPUT_PATHS: ${{ inputs.php-paths }}
+        INPUT_PHPCS: ${{ inputs.phpcs-config }}
+        INPUT_PHPSTAN: ${{ inputs.phpstan-config }}
+        INPUT_PHPUNIT: ${{ inputs.phpunit-config }}
+        INPUT_PSALM: ${{ inputs.psalm-config }}
+        INPUT_SEMGREP: ${{ inputs.semgrep-config }}
+        INPUT_GITLEAKS: ${{ inputs.gitleaks-config }}
+        INPUT_BASE: ${{ inputs.secret-scan-base }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" validate
+    - name: Set up patched PHP
+      id: php
+      uses: shivammathur/setup-php@4424c9aab975b57bd706ee5a39c6b4334d6e4f60 # 2.40.0
+      with:
+        php-version: ${{ steps.inputs.outputs.php-version }}
+        extensions: ctype,dom,iconv,mbstring,simplexml,tokenizer,xml,xmlwriter,${{ steps.inputs.outputs.extensions }}
+        tools: composer:${{ steps.inputs.outputs.composer-version }}
+        coverage: none
+    - name: Install locked project tools and scanners
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" install
+    - name: PHP syntax
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" syntax
+    - name: Coding standard
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" style
+    - name: PHPStan
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" types
+    - name: PHPUnit
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" tests
+    - name: Psalm security taint analysis
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" psalm
+    - name: Composer dependency audit
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" audit
+    - name: Semgrep security rules and coverage
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" semgrep
+    - name: Redacted source and history secret scans
+      shell: bash
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
+      run: bun "$PHP_CI_ACTION/scripts/ci.ts" secrets
+branding:
+  icon: check-circle
+  color: blue
