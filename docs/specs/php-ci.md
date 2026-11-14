@@ -1,6 +1,6 @@
 ---
 status: draft
-status_description: "Reviewed draft awaiting owner choices on v1 runners and security analysis."
+status_description: "Owner-selected Linux, patched PHP, Semgrep CE, Psalm and shared GitVersion scope awaiting final spec review."
 issue: null
 goal: "PHP consumers run reproducible blocking quality and security checks through one free-tool composite action."
 covers:
@@ -28,7 +28,7 @@ Provide `vhco-pro/php-ci-action` as the shared PHP verification component.
 
 The owner requested the same reusable component structure already used for Go and Worker CI.
 This action will run PHP syntax, coding-standard, static-analysis, behavior, dependency-audit,
-source-security and secret checks using free command-line tools. It will keep their versions,
+Semgrep security, Psalm taint and secret checks using free command-line tools. It will keep their versions,
 configuration and actual coverage visible. Every required check must block CI on a finding or
 execution failure according to its declared policy.
 
@@ -38,17 +38,19 @@ package audits. It will call the shared action at an immutable reviewed revision
 Other PHP projects will supply their own runtime, extensions and analysis configurations through the
 same interface. The action's logic will live in versioned scripts called through `github.action_path`.
 
-The proposed first target is Linux GitHub Actions runners. The caller checks out its source and sets
+The owner selected Linux GitHub Actions runners. The caller checks out its source and sets
 job permissions. The action sets up the requested PHP runtime and Composer, installs locked development
 tools and executes the checks. The design uses local tool output and synthetic scanner fixtures.
 Pipeline execution requires no paid scanner account or upload of private source to a scanning service.
-The component will have its own CI, examples and independent review before consumer adoption.
+The component will have its own CI, examples and independent review before consumer adoption. The owner explicitly authorized branch pushes and CI,
+with all implementation merges held for review.
 
 The shared PHP guidance is merged at `1edeb5f32d868bbe761ef3221f350634cd6ff022`.
 The action has no implementation or executed checks yet. Acceptance authorizes the feature claim,
 implementation, tests and reviewable PR in this repository. Implementation merge, public visibility,
 version tags and release remain separate owner decisions. The plugin can execute its scans while this
-component is developed. Its correctness and scan evidence remain required before its own completion.
+component is developed. Its correctness and scan evidence remain required before its own completion. Shared GitVersion controls both this action and the plugin release versions.
+The plugin owns its native SemVer-to-pkg mapping and signed-feed version proof.
 
 ### Background
 
@@ -64,10 +66,14 @@ immutable pins and one owning component per responsibility.
 
 ## Scope
 
-Include the generic PHP quality/security composite, reproducible tool setup, Linux runner verification,
+Include the generic PHP quality/security composite, reproducible tool setup, Linux runner verification, shared GitVersion dry-run/release wiring,
 passing and failing synthetic consumers, checked usage examples and documentation. Keep native platform
-setup, application-specific integration and deployment in consumers. Release workflows compose the CI
-component with the existing shared versioning/release components when separately approved.
+setup, application-specific integration and deployment in consumers. Release workflows compose the checked CI component with the existing shared GitVersion release workflow.
+Source inspection verified `vhco-pro/gh-release-workflow/.github/workflows/gh-release.yml` at
+`b18de6d2f305f971afe01ba31e17bde5966b1567`. It calls the shared GitVersion action and shared release action.
+The component uses its bundled GitVersion configuration and exact v-prefixed SemVer tags. The caller
+orders tests before the shared workflow. Feature-branch verification runs dry-run only. Actual release
+publication remains separately approved.
 
 ## Design
 
@@ -78,8 +84,10 @@ The caller supplies checkout and read-only job permissions. The action executes 
 selected working directory, resolves its own scripts from `github.action_path` and supports running
 from a nested directory in a separate checkout. The caller's credentials remain outside diagnostics.
 
-The proposed v1 runtime matrix is PHP 8.4 and 8.5 on Ubuntu 24.04, subject to Q1. Require an exact
-supported PHP patch version as `php-version`. Tool compatibility is verified against each selected
+The v1 runtime matrix is PHP 8.4.27 and 8.5.12 on Ubuntu 24.04. These are the currently published
+security-fixed releases on the selected active branches. Require an exact supported patch version as
+`php-version` and reject older patches, prereleases and other branches. Store the approved patch matrix
+in updater-visible configuration and verify the resolved interpreter against it. Tool compatibility is verified against each selected
 matrix runtime. The action provides these inputs.
 
 | Input | Contract |
@@ -91,7 +99,8 @@ matrix runtime. The action provides these inputs.
 | `phpcs-config` | Defaults to `phpcs.xml.dist`, an existing project-relative file. |
 | `phpstan-config` | Defaults to `phpstan.neon`, an existing project-relative file. |
 | `phpunit-config` | Defaults to `phpunit.xml.dist`, an existing project-relative file. |
-| `security-config` | Required existing project-relative rules/config file for the security analyzer selected in Q2. |
+| `semgrep-config` | Required existing project-relative PHP security rules file. |
+| `psalm-config` | Defaults to `psalm.xml`, an existing project-relative taint-analysis configuration. |
 | `gitleaks-config` | Optional existing project-relative configuration. An omitted value uses the pinned scanner's default rules. |
 | `secret-scan-base` | Optional full commit SHA. When supplied it must exist and be an ancestor of HEAD. The Git scan covers `base..HEAD`. An omitted value scans HEAD's complete reachable ancestry. |
 
@@ -104,13 +113,16 @@ is created for a failed run.
 Use Composer's committed lock file to install the selected compatible PHP_CodeSniffer, PHPStan and
 PHPUnit versions. Validate manifest/lock consistency and the actual interpreter/extensions. Reuse an
 established equivalent analysis setup only through a documented tested interface. Source and test paths
-come from the checked consumer configurations. Syntax checking covers every owned PHP entry point.
+come from the checked consumer configurations. All four Composer-managed tools, including Psalm,
+are pinned in the consumer lock file and compatibility-checked on the selected PHP runtime. Syntax checking covers every owned PHP entry point.
 
-The source-security analyzer and secret scanner use free CLI implementations with compatible licenses
+The source-security analyzers and secret scanner use free CLI implementations with compatible licenses
 for use in this reusable action. Verify their actual PHP syntax support, selected rules, sources/sinks,
-limits and finding/error exit behavior before adoption. Q2 selects the v1 analyzer, with Semgrep CE as the recommendation already exercised in the plugin.
-The analyzer uses the required consumer `security-config`, with the tool installation and invocation
-owned by the shared action. Gitleaks supplies secret scanning. Retain the selected tools, exact versions,
+limits and finding/error exit behavior before adoption. The owner selected Semgrep CE and requested Psalm for its complementary cross-function taint analysis.
+Run both. Semgrep uses consumer `semgrep-config`; Psalm uses `psalm-config` and accurate framework
+source/sink/sanitizer annotations when needed. The shared action owns tool setup and invocation.
+Verify a cross-function unsafe flow fails Psalm and a corresponding safe flow passes. Keep ordinary
+type analysis with PHPStan and report each analyzer's actual limits. Gitleaks supplies secret scanning. Retain the selected tools, exact versions,
 licenses and rule provenance in checked configuration. An included
 ruleset needs its own license and attribution assessment.
 
@@ -127,7 +139,8 @@ Run `composer audit --locked` including development and transitive dependencies.
 findings visible with their reviewed dispositions. The consumer's native package manager audits runtime
 dependencies outside Composer.
 
-Run source-security rules against `php-paths` and report parser or exclusion gaps. Run redacted secret
+Run Semgrep rules and Psalm taint analysis against the intended owned paths declared by their checked configurations.
+Verify Semgrep coverage against `php-paths` and report parser or exclusion gaps. Run redacted secret
 scanning over the declared Git range and the selected working tree, with project rules documenting
 exclusions for dependencies and synthetic fixtures. Require complete Git ancestry when scanning full
 history and sufficient history to resolve the selected base for a bounded scan. Reject an insufficient
@@ -160,11 +173,12 @@ pins for review, keeping CI verification and publication authority distinct.
 
 - [ ] AC-01: A Linux workflow invokes the composite from a separately checked-out action and a nested PHP consumer with documented inputs, correct runtime/extensions and no accidental writes outside owned setup/output paths.
 - [ ] AC-02: Syntax, coding-standard, static-analysis and behavior checks each execute against the intended owned files, accept a valid fixture and independently reject an appropriate defective fixture.
-- [ ] AC-03: Locked dependency auditing, PHP source-security analysis and redacted secret scanning execute with recorded versions, licenses, rules and coverage, using free tools without a required paid scanning account.
+- [ ] AC-03: Locked dependency auditing, Semgrep security analysis, Psalm taint analysis and redacted secret scanning execute with recorded versions, licenses, rules and coverage, using free tools without a required paid scanning account.
 - [ ] AC-04: The pipeline blocks on scanner findings and execution failures, including synthetic vulnerabilities or secrets, malformed configuration, empty expected coverage, missing tools and unavailable audit data, while narrow reviewed exceptions remain visible.
 - [ ] AC-05: Tool setup and action dependencies are immutable, verified and discoverable by the repository's updater, and scripts, lock files, workflow permissions and diagnostics preserve the declared input and credential boundaries.
 - [ ] AC-06: A standalone PHP fixture and the OPNsense plugin demonstrate the same generic action interface, with native OPNsense tests retained in the plugin and complete checked examples and operator documentation.
 - [ ] AC-07: Independent review and exact-head CI establish the accepted component and first-consumer behavior, while publication state and any pending cross-repository adoption remain explicit.
+- [ ] AC-08: Release verification runs only after the component checks, obtains its version through the pinned shared GitVersion release workflow and uses its bundled policy, with dry runs creating no tags or releases.
 
 ## Test Plan
 
@@ -172,11 +186,13 @@ pins for review, keeping CI verification and publication authority distinct.
 | --- | --- |
 | AC-01 | Run the actual composite in its GitHub integration workflow with the action and consumer in different directories, including a directory containing spaces. Assert runtime/extensions, outputs and unchanged fixture source. Reject paths outside the documented consumer boundary and command-substitution input without executing it. |
 | AC-02 | Exercise actual action scripts/commands against isolated passing fixtures and separate invalid syntax, PSR-12 style, type/API and failing PHPUnit cases. Assert the relevant command fails on each fixture and prove it scans the declared paths. |
-| AC-03 | Record each installed tool/version/license and selected configuration, then run audit, source-security and secret checks against clean and finding-bearing synthetic inputs. Verify the scan needs no paid-service credential. Prove known input-to-sensitive-operation coverage for the selected PHP scanner and list its limits. |
+| AC-03 | Record each installed tool/version/license and selected configuration, then run Composer audit, Semgrep, Psalm and secret checks against clean and finding-bearing synthetic inputs. Verify the scan needs no paid-service credential. Prove Semgrep positive/negative cases and a cross-function input-to-sensitive-operation flow in Psalm, and list both analyzers' limits. |
 | AC-04 | Fault-inject scanner startup errors, invalid rules, parser errors, empty owned paths and advisory-service failures through controlled fixtures. Assert a failed/incomplete job outcome and redacted output. Verify a narrowly scoped allowed fixture leaves an independent synthetic finding detectable. |
 | AC-05 | Inspect manifests and updater configuration against every installed dependency and rule pin. Verify an incorrect checksum fails setup, and use hostile path/configuration inputs to confirm argument handling. Inspect workflow permissions, reports and Git diff for leaked fixtures or source mutation. |
 | AC-06 | Run the real composite on a standalone fixture and the plugin's reviewed source/configuration with host symbols prepared by the consumer. Validate example workflow input names and required values against action.yml. Confirm the plugin's native browser/package/restore jobs remain present and their evidence stays consumer-owned. |
 | AC-07 | Run repository checks and the real GitHub composite workflow at the PR head, retain the independent review and verify that the proposed plugin pin names the assessed component commit. Record any unapproved publication or merge as pending. |
+
+| AC-08 | Inspect and test workflow dependency/pin/permissions against the actual shared release contract. Run its dry-run path at the assessed commit and verify that version output is from GitVersion while tags/releases remain unchanged. Reject local version calculators, duplicate release owners and a release job independent of checks. |
 
 ## Tasks
 
@@ -184,31 +200,12 @@ None yet. Tasks follow reviewed owner acceptance.
 
 ## Open Questions
 
-### Q1: Which runner platforms should the first release support?
-
-**Recommendation:** A. Start with Ubuntu 24.04 and PHP 8.4/8.5, including the actual plugin consumer.
-
-| Option | You get | It costs |
-| --- | --- | --- |
-| **A. Linux first** | A tested Linux interface and both supported PHP minor series | macOS would need a later support decision |
-| **B. Linux and macOS** | Both runner platforms in the first supported matrix | Additional tool-installation and scanner tests on macOS |
-
-**Why this is yours:** The owner requested a shared action and free tools. The initial runner-platform
-promise affects the supported consumer scope.
-
-### Q2: Which free PHP security analyzer should the first release use?
-
-**Recommendation:** A. Use Semgrep CE with pinned, reviewed PHP rules and explicit single-function limits.
-
-| Option | You get | It costs |
-| --- | --- | --- |
-| **A. Semgrep CE** | Reuses the analyzer exercised by the plugin and consumer-owned rules | Rule selection and review, with single-function data-flow limits |
-| **B. Psalm taint analysis** | PHP-specific analysis across function boundaries | Another Composer analyzer and framework source/sink configuration |
-
-**Why this is yours:** Both meet the free-tool requirement and create different coverage and maintenance
-commitments. The selected implementation becomes the first action's interface.
-
-Public visibility and the first release remain later publication decisions.
+None. On 2026-11-14 the owner selected Linux only, Semgrep CE, added Psalm when useful and free,
+authorized automatic merged-branch deletion and requested continued implementation with pushes and CI.
+The owner required patched versions on the used PHP branches and shared GitVersion for both components.
+The current patch matrix is 8.4.27 and 8.5.12, verified against PHP's release notices. The OPNsense plugin
+continues to target its own PHP 8.5 platform. Implementation merge, public visibility and release remain
+separate owner decisions.
 
 ## Review Log
 
@@ -243,3 +240,7 @@ PROPOSAL: Present the remaining consequential v1 scope and tool-selection choice
 - [Psalm security analysis](https://psalm.dev/docs/security_analysis/) documents PHP taint analysis.
 - [Semgrep CE language support](https://docs.semgrep.dev/semgrep-ce-languages) documents free-engine PHP coverage and limits.
 - [Gitleaks](https://github.com/gitleaks/gitleaks) documents local redacted secret scanning.
+
+- [PHP support policy](https://www.php.net/supported-versions.php) and [PHP release changelog](https://www.php.net/ChangeLog-8.php) establish the selected active branches and current security-fixed patches.
+- [Shared GitVersion release workflow](https://github.com/vhco-pro/gh-release-workflow/blob/b18de6d2f305f971afe01ba31e17bde5966b1567/.github/workflows/gh-release.yml) owns component version calculation and release publication.
+- [Psalm MIT license](https://github.com/vimeo/psalm/blob/master/LICENSE) permits the selected free analyzer.
