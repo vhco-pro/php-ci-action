@@ -184,26 +184,26 @@ if (import.meta.main) {
       if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
       appendFileSync(process.env.GITHUB_OUTPUT, `versions=${JSON.stringify(supportedVersions())}\n`);
     } else {
-    const environment: Record<string, string | undefined> = { ...process.env };
-    const inputKeys = ["INPUT_PROJECT", "INPUT_PHP", "INPUT_EXTENSIONS", "INPUT_PATHS", "INPUT_PHPCS", "INPUT_PHPSTAN", "INPUT_PHPUNIT", "INPUT_PSALM", "INPUT_SEMGREP", "INPUT_GITLEAKS", "INPUT_BASE"];
-    if (process.env.PHP_CI_INPUTS_JSON) {
-      const supplied = object(JSON.parse(process.env.PHP_CI_INPUTS_JSON));
-      for (const [key, value] of Object.entries(supplied)) {
-        if (!inputKeys.includes(key) || typeof value !== "string") throw new Error("Invalid serialized action input.");
-        environment[key] = value;
+      const environment: Record<string, string | undefined> = { ...process.env };
+      const inputKeys = ["INPUT_PROJECT", "INPUT_PHP", "INPUT_EXTENSIONS", "INPUT_PATHS", "INPUT_PHPCS", "INPUT_PHPSTAN", "INPUT_PHPUNIT", "INPUT_PSALM", "INPUT_SEMGREP", "INPUT_GITLEAKS", "INPUT_BASE"];
+      if (process.env.PHP_CI_INPUTS_JSON) {
+        const supplied = object(JSON.parse(process.env.PHP_CI_INPUTS_JSON));
+        for (const [key, value] of Object.entries(supplied)) {
+          if (!inputKeys.includes(key) || typeof value !== "string") throw new Error("Invalid serialized action input.");
+          environment[key] = value;
+        }
       }
-    }
-    const config = validate(environment);
-    if (mode === "validate") {
-      if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
-      appendFileSync(process.env.GITHUB_OUTPUT, `project=${config.project}\nphp-version=${config.phpVersion}\nextensions=${config.extensions}\ncomposer-version=${String(tools.composer)}\ninputs-json=${JSON.stringify(Object.fromEntries(inputKeys.map(key => [key, environment[key]])))}\n`);
-    } else if (mode === "install") {
-      await install(config);
-    } else if (["syntax", "style", "types", "tests", "psalm", "audit", "semgrep", "secrets"].includes(mode ?? "")) {
-      await check(mode as Mode, config);
-    } else {
-      throw new Error("Unknown PHP CI operation.");
-    }
+      const config = validate(environment);
+      if (mode === "validate") {
+        if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
+        appendFileSync(process.env.GITHUB_OUTPUT, `project=${config.project}\nphp-version=${config.phpVersion}\nextensions=${config.extensions}\ncomposer-version=${String(tools.composer)}\ninputs-json=${JSON.stringify(Object.fromEntries(inputKeys.map(key => [key, environment[key]])))}\n`);
+      } else if (mode === "install") {
+        await install(config);
+      } else if (["syntax", "style", "types", "tests", "psalm", "audit", "semgrep", "secrets"].includes(mode ?? "")) {
+        await check(mode as Mode, config);
+      } else {
+        throw new Error("Unknown PHP CI operation.");
+      }
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : "PHP CI failed.");
