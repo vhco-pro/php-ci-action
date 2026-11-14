@@ -12,7 +12,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # Draft implementation ref. Adopt a reviewed release before production use.
-      - uses: vhco-pro/php-ci-action@2c058210653ff167e37858696ebfd947c43f004b
+      - uses: vhco-pro/php-ci-action@932407b5c0ee5d0619fbf2d0b813013f0fb274c8
         with:
           php-version: '8.5.12'
           semgrep-config: security.yml

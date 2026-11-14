@@ -53,7 +53,8 @@ with all implementation merges held for review.
 The shared PHP guidance is merged at `1edeb5f32d868bbe761ef3221f350634cd6ff022`.
 The action is implemented on its feature branch. Its Linux composites, defective fixtures and shared
 GitVersion dry run passed on both selected patches at `8bed7b3`. Independent review found secret-scan
-and empty-check coverage defects that require repair. Native first-consumer adoption remains pending. Acceptance authorizes the feature claim,
+and empty-check coverage defects. Their regression probes passed on both runtimes at `932407b`.
+Native first-consumer adoption and the fresh implementation review remain pending. Acceptance authorizes the feature claim,
 implementation, tests and reviewable PR in this repository. Implementation merge, public visibility,
 version tags and release remain separate owner decisions. The plugin can execute its scans while this
 component is developed. Its correctness and scan evidence remain required before its own completion. Shared GitVersion controls both this action and the plugin release versions.
@@ -215,8 +216,10 @@ pins for review, keeping CI verification and publication authority distinct.
 - [ ] T4 `README.md`, `AGENTS.md`, `tests/` - record native consumer inputs, compatibility and failure evidence and verify examples match the composite (AC-06, AC-07)
 - [ ] T5 `docs/specs/php-ci.md` - obtain independent implementation review, repair findings and push the reviewed PR with exact-head CI (AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-08)
 
-- [ ] T6 `scripts/ci.ts`, `tests/ci.test.ts`, `tests/probe.ts` - reject nested-source secret omissions and empty PHPUnit/Psalm coverage, retain sanitized Semgrep failure details and pass real regression probes (AC-03, AC-04, AC-05)
-- [ ] T7 `.github/workflows/test.yml`, `tests/probe.ts` - verify the actual composite from a consumer directory containing spaces and prove its checked inputs remain unchanged (AC-01)
+- [x] T6 `scripts/ci.ts`, `tests/ci.test.ts`, `tests/probe.ts` - reject nested-source secret omissions and empty PHPUnit/Psalm coverage, retain sanitized Semgrep failure details and pass real regression probes (AC-03, AC-04, AC-05)
+  - Evidence: run https://github.com/vhco-pro/php-ci-action/actions/runs/43585889745 passed all 12 actual safe/unsafe probes on both selected PHP runtimes at `932407b`, including nested and historical secrets, empty suites/analysis, safe HTML and sanitized Semgrep diagnostics. All 23 local contracts pass.
+- [x] T7 `.github/workflows/test.yml`, `tests/probe.ts` - verify the actual composite from a consumer directory containing spaces and prove its checked inputs remain unchanged (AC-01)
+  - Evidence: the same run invoked the composite from `component/consumer fixture` and its probe verified the tracked consumer inputs remained byte-identical.
 
 ## Open Questions
 
@@ -237,6 +240,8 @@ separate owner decisions.
 | 2026-11-14 | R-3 | spec | `8bed7b357d3849a92d6c7c1ceb816561983eaf1b` | unknown | procedural | One summary-only nit. Model identity not attested. |
 | 2026-11-14 | R-3 | spec | `8bed7b357d3849a92d6c7c1ceb816561983eaf1b` | n/a | n/a | accepted by owner |
 | 2026-11-14 | R-4 | implementation | `8bed7b357d3849a92d6c7c1ceb816561983eaf1b` | unknown | procedural | Blocking secret and empty-check coverage defects. First-consumer proof pending. Model identity not attested. |
+| 2026-11-14 | R-5 | spec | `932407b5c0ee5d0619fbf2d0b813013f0fb274c8` | unknown | procedural | NO FINDINGS after the coverage regression proof update. Model identity not attested. |
+| 2026-11-14 | R-5 | spec | `932407b5c0ee5d0619fbf2d0b813013f0fb274c8` | n/a | n/a | accepted by owner |
 
 ### R-1
 
@@ -321,6 +326,10 @@ SEVERITY: blocking
 WHERE: scripts/ci.ts:100; scripts/ci.ts:113-114; tests/probe.ts:8-16; Design / Checks and results
 EVIDENCE: The PHPUnit and Psalm branches rely solely on exit status. I ran PHPUnit 13.4.7 on PHP 8.5.12 with an existing empty suite using the action's current flags. It returned exit 0 and No tests executed. Psalm 7.5.0 with the current taint-analysis flags and an existing empty project directory returned exit 0, No errors found and No files analyzed. The current wrapper therefore accepts required checks with zero executed coverage. Evidence is retained in /tmp/php-ci-review.U52S0I/phpunit-empty.log and psalm-empty.log.
 PROPOSAL: Enable PHPUnit's empty-suite failure and reject Psalm's zero-file analysis result. Add empty-suite and empty-analysis regressions alongside the existing positive and unsafe fixtures.
+
+### R-5
+
+NO FINDINGS
 
 ## Sources
 
