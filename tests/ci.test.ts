@@ -71,7 +71,7 @@ test("dispatches every checker with separate arguments", async () => {
   expect(commands.filter(command => command[1] === "-l")).toHaveLength(2);
   expect(commands.some(command => command.includes("--taint-analysis"))).toBe(true);
   expect(commands.some(command => command.includes("--locked") && !command.includes("--no-dev"))).toBe(true);
-  expect(commands.find(command => command[0]?.endsWith("phpcs"))?.includes(join(workspace, "nested project", "phpcs.xml.dist"))).toBe(true);
+  expect(commands.find(command => command[0]?.endsWith("phpcs"))?.includes(`--standard=${join(workspace, "nested project", "phpcs.xml.dist")}`)).toBe(true);
 });
 
 test.each(["syntax", "style", "types", "tests", "psalm", "audit"] as const)("%s blocks on command failure", async mode => {

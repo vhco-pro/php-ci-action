@@ -108,7 +108,7 @@ export async function check(mode: Mode, config: Configuration, runner: CommandRu
     case "syntax":
       for (const file of config.phpFiles) await run(["php", "-l", file]);
       break;
-    case "style": await run([binary("phpcs"), "--standard", config.phpcs]); break;
+    case "style": await run([binary("phpcs"), `--standard=${config.phpcs}`]); break;
     case "types": await run([binary("phpstan"), "analyse", "--no-progress", "--configuration", config.phpstan]); break;
     case "tests": await run([binary("phpunit"), "--configuration", config.phpunit]); break;
     case "psalm": await run([binary("psalm"), "--taint-analysis", "--no-cache", "--threads=1", "--config", config.psalm]); break;
