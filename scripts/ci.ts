@@ -83,7 +83,7 @@ export function validate(env: Record<string, string | undefined>): Configuration
   };
 }
 
-const execute: CommandRunner = async (command, cwd) => {
+export const execute: CommandRunner = async (command, cwd) => {
   const process = Bun.spawn(command, { cwd, stdout: "pipe", stderr: "pipe", timeout: 600_000 });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(process.stdout).text(), new Response(process.stderr).text(), process.exited,
@@ -110,19 +110,57 @@ export async function check(mode: Mode, config: Configuration, runner: CommandRu
       break;
     case "style": await run([binary("phpcs"), `--standard=${config.phpcs}`]); break;
     case "types": await run([binary("phpstan"), "analyse", "--no-progress", "--configuration", config.phpstan]); break;
-    case "tests": await run([binary("phpunit"), "--configuration", config.phpunit]); break;
-    case "psalm": await run([binary("psalm"), "--taint-analysis", "--no-cache", "--threads=1", "--config", config.psalm]); break;
+    case "tests": await run([binary("phpunit"), "--configuration", config.phpunit, "--fail-on-empty-test-suite"]); break;
+    case "psalm": {
+      const result = await runner([binary("psalm"), "--taint-analysis", "--no-cache", "--threads=1", "--no-progress", "--monochrome", "--config", config.psalm], config.project);
+      process.stdout.write(result.stdout);
+      process.stderr.write(result.stderr);
+      if (result.exitCode !== 0) throw new Error(`Psalm failed with exit ${result.exitCode}.`);
+      if (/^\s*No files analy[sz]ed[.!]?\s*$/im.test(result.stdout + "\n" + result.stderr)) throw new Error("Psalm analyzed no files.");
+      break;
+    }
     case "audit": await run(["composer", "audit", "--locked", "--abandoned=fail"]); break;
     case "semgrep": {
-      const result = await run(["semgrep", "scan", "--jobs", "1", "--metrics=off", "--disable-version-check", "--error", "--strict", "--no-git-ignore", `--project-root=${config.project}`, "--json", "--config", config.semgrep, ...config.paths], true);
-      const report = object(JSON.parse(result));
-      const scanned = object(report.paths).scanned;
-      if (!Array.isArray(scanned) || !Array.isArray(report.errors) || !Array.isArray(report.results)) throw new Error("Incomplete Semgrep result.");
+      const result = await runner(["semgrep", "scan", "--jobs", "1", "--metrics=off", "--disable-version-check", "--error", "--strict", "--no-git-ignore", `--project-root=${config.project}`, "--json", "--config", config.semgrep, ...config.paths], config.project);
+      let report: Record<string, unknown>;
+      try {
+        report = object(JSON.parse(result.stdout));
+      } catch {
+        throw new Error(`Semgrep returned invalid JSON with exit ${result.exitCode}.`);
+      }
+      const paths = typeof report.paths === "object" && report.paths !== null ? object(report.paths) : {};
+      const complete = Array.isArray(paths.scanned) && Array.isArray(report.errors) && Array.isArray(report.results);
+      const scanned: unknown[] = Array.isArray(paths.scanned) ? paths.scanned : [];
+      const rawFindings: unknown[] = Array.isArray(report.results) ? report.results : [];
+      const rawErrors: unknown[] = Array.isArray(report.errors) ? report.errors : [];
       const actual = new Set(scanned.filter((path): path is string => typeof path === "string").map(path => resolve(config.project, path)));
+      const findings = rawFindings.map((item: unknown) => {
+        const finding = object(item);
+        const start = typeof finding.start === "object" && finding.start !== null ? object(finding.start) : {};
+        return {
+          rule: typeof finding.check_id === "string" ? finding.check_id : "unknown",
+          path: typeof finding.path === "string" ? finding.path : undefined,
+          line: typeof start.line === "number" ? start.line : undefined,
+        };
+      });
+      const errors = rawErrors.map((item: unknown) => {
+        const error = object(item);
+        return {
+          category: typeof error.type === "string" ? error.type : "unknown",
+          path: typeof error.path === "string" ? error.path : undefined,
+        };
+      });
       const missing = config.phpFiles.filter(path => !actual.has(path));
-      if (report.errors.length || report.results.length || missing.length) {
-        console.error(`Semgrep reported ${report.results.length} findings, ${report.errors.length} errors and ${missing.length} unchecked PHP files.`);
-        for (const path of missing.slice(0, 20)) console.error(`Unchecked file: ${relative(config.project, path)}`);
+      const directory = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), "php-ci-report-"));
+      chmodSync(directory, 0o700);
+      const reportPath = join(directory, "semgrep.json");
+      writeFileSync(reportPath, JSON.stringify({ exitCode: result.exitCode, complete, scannedFiles: [...actual].map(path => relative(config.project, path)), findings, errors, missing: missing.map(path => relative(config.project, path)) }, null, 2), { mode: 0o600 });
+      console.info(`Sanitized Semgrep report: ${reportPath}`);
+      for (const finding of findings) console.error(JSON.stringify(finding));
+      for (const error of errors) console.error(JSON.stringify(error));
+      if (result.exitCode !== 0 || !complete || errors.length || findings.length || missing.length) {
+        console.error(`Semgrep reported ${findings.length} findings, ${errors.length} errors and ${missing.length} unchecked PHP files.`);
+        for (const path of missing.slice(0, 20)) console.error(JSON.stringify({ unchecked: relative(config.project, path) }));
         throw new Error("Semgrep findings, errors or incomplete PHP coverage.");
       }
       console.info(`Semgrep checked ${config.phpFiles.length} owned PHP files.`);
@@ -133,9 +171,11 @@ export async function check(mode: Mode, config: Configuration, runner: CommandRu
       if (shallow !== "false") throw new Error("Secret scanning requires a complete checkout.");
       const repository = realpathSync((await run(["git", "rev-parse", "--show-toplevel"], true)).trim());
       if (config.base) await run(["git", "merge-base", "--is-ancestor", config.base, "HEAD"], true);
-      const options = ["--config", config.gitleaks ?? join(import.meta.dir, "security/gitleaks.toml")];
+      const options = config.gitleaks ? ["--config", config.gitleaks] : [];
       await run(["gitleaks", "git", "--redact=100", "--no-banner", `--log-opts=${config.base ? `${config.base}..HEAD` : "HEAD"}`, ...options, repository]);
-      await run(["gitleaks", "dir", "--redact=100", "--no-banner", ...options, config.project]);
+      for (const path of config.paths) {
+        await run(["gitleaks", "dir", "--redact=100", "--no-banner", ...options, path]);
+      }
       break;
     }
   }

@@ -32,12 +32,15 @@ jobs:
           path: component
           fetch-depth: 0
           persist-credentials: false
+      - name: Prepare a consumer path containing spaces
+        run: cp -a component/tests/fixture "component/consumer fixture"
       - uses: ./component
         with:
-          working-directory: component/tests/fixture
+          working-directory: component/consumer fixture
           php-version: ${{ matrix.php }}
           semgrep-config: security.yml
       - name: Prove real checker failures
         env:
           PHP_CI_TEST_VERSION: ${{ matrix.php }}
+          PHP_CI_FIXTURE: ${{ github.workspace }}/component/consumer fixture
         run: bun component/tests/probe.ts

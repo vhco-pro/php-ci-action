@@ -33,16 +33,20 @@ and the safe form when extending those boundaries.
 | `phpunit-config` | Behavior tests, default `phpunit.xml.dist`. |
 | `psalm-config` | Taint analysis, default `psalm.xml`. |
 | `semgrep-config` | Required local PHP security rules file. |
-| `gitleaks-config` | Optional custom secret rules and exclusions. The bundled default extends upstream rules and excludes installed vendor/node_modules files and Git metadata. |
+| `gitleaks-config` | Optional custom secret rules and exclusions. An omitted value uses upstream rules. History covers the declared Git range, and working-tree scans cover each selected owned path. |
 | `secret-scan-base` | Optional full ancestor SHA. Empty scans complete HEAD ancestry. |
 
 Configuration paths resolve inside the project. Source paths must contain PHP files, and discovered
 source symlinks fail validation. The action checks that Semgrep actually covered every selected PHP
 file. Findings, parser errors and missing coverage fail the check. Scanner suppressions and fixture
-allowlists need a precise reason and review.
+allowlists need a precise reason and review. Owned paths named `vendor` or `node_modules` retain coverage.
+Installed dependencies outside the selected paths stay outside the working-tree scan.
+PHPUnit rejects an empty suite. Psalm rejects its zero-file analysis result as incomplete.
 
 The output `php-version` records the resolved interpreter version. GitHub step results identify the
-failed check. A failed check stops dependent publication jobs.
+failed check. Semgrep findings keep their rule, file and line in sanitized diagnostics. Its report is
+stored in `$RUNNER_TEMP/php-ci-report-*/semgrep.json` with restrictive permissions. Source snippets
+and finding values are omitted. The caller explicitly chooses report retention or upload. A failed check stops dependent publication jobs.
 
 ## Tools and updates
 

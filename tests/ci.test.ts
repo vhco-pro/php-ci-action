@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,9 +6,12 @@ import { validate, check, supportedVersions, verifyChecksum, type CommandRunner 
 
 let workspace: string;
 let environment: Record<string, string>;
+let previousRunnerTemp: string | undefined;
 
 beforeEach(() => {
   workspace = mkdtempSync(join(tmpdir(), "php-ci fixture "));
+  previousRunnerTemp = process.env.RUNNER_TEMP;
+  process.env.RUNNER_TEMP = workspace;
   const project = join(workspace, "nested project");
   mkdirSync(join(project, "src"), { recursive: true });
   mkdirSync(join(project, "tests"));
@@ -31,7 +34,11 @@ beforeEach(() => {
   };
 });
 
-afterEach(() => rmSync(workspace, { recursive: true, force: true }));
+afterEach(() => {
+  if (previousRunnerTemp === undefined) delete process.env.RUNNER_TEMP;
+  else process.env.RUNNER_TEMP = previousRunnerTemp;
+  rmSync(workspace, { recursive: true, force: true });
+});
 
 test("validates a nested project with spaces and exact patched PHP", () => {
   const config = validate(environment);
@@ -120,4 +127,49 @@ test("download verification rejects a modified archive", () => {
   const emptyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
   expect(() => verifyChecksum(new Uint8Array(), emptyHash)).not.toThrow();
   expect(() => verifyChecksum(new Uint8Array([1]), emptyHash)).toThrow("checksum mismatch");
+});
+
+
+test("PHPUnit rejects an empty suite and Psalm rejects empty analysis", async () => {
+  const config = validate(environment);
+  await check("tests", config, command => {
+    expect(command).toContain("--fail-on-empty-test-suite");
+    return Promise.resolve({ exitCode: 0, stdout: "One test passed", stderr: "" });
+  });
+  const result = await check("psalm", config, () => Promise.resolve({ exitCode: 0, stdout: "No errors found!", stderr: "No files analyzed" })).then(() => undefined, (error: unknown) => error);
+  expect(result).toBeInstanceOf(Error);
+});
+
+test("Semgrep preserves safe diagnostics on findings and parser errors", async () => {
+  const messages: string[] = [];
+  const capture = spyOn(console, "error").mockImplementation((value: unknown) => messages.push(String(value)));
+  try {
+    const config = validate(environment);
+    const raw = {
+      paths: { scanned: config.phpFiles },
+      results: [{ check_id: "fixture-rule", path: "src/example.php", start: { line: 9 }, extra: { lines: "private-fixture-source" } }],
+      errors: [{ type: "ParseError", path: "tests/example.php" }],
+    };
+    const result = await check("semgrep", config, () => Promise.resolve({ exitCode: 1, stdout: JSON.stringify(raw), stderr: "" })).then(() => undefined, (error: unknown) => error);
+    expect(result).toBeInstanceOf(Error);
+    expect(messages.join("\n")).toContain("fixture-rule");
+    expect(messages.join("\n")).toContain("ParseError");
+    expect(messages.join("\n")).toContain("example.php");
+    expect(messages.join("\n")).not.toContain("private-fixture-source");
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+test("secret scans cover declared owned paths without blanket exclusions", async () => {
+  const config = validate(environment);
+  const commands: string[][] = [];
+  await check("secrets", config, command => {
+    commands.push(command);
+    const stdout = command.includes("--is-shallow-repository") ? "false\n" : command.includes("--show-toplevel") ? workspace+"\n" : "";
+    return Promise.resolve({ exitCode: 0, stdout, stderr: "" });
+  });
+  const directoryScans = commands.filter(command => command[0] === "gitleaks" && command[1] === "dir");
+  expect(directoryScans.map(command => command.at(-1))).toEqual(config.paths);
+  expect(directoryScans.every(command => !command.includes("--config"))).toBe(true);
 });
