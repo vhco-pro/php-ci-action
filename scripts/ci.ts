@@ -114,12 +114,17 @@ export async function check(mode: Mode, config: Configuration, runner: CommandRu
     case "psalm": await run([binary("psalm"), "--taint-analysis", "--no-cache", "--threads=1", "--config", config.psalm]); break;
     case "audit": await run(["composer", "audit", "--locked", "--abandoned=fail"]); break;
     case "semgrep": {
-      const result = await run(["semgrep", "scan", "--jobs", "1", "--metrics=off", "--disable-version-check", "--error", "--strict", "--no-git-ignore", "--json", "--config", config.semgrep, ...config.paths], true);
+      const result = await run(["semgrep", "scan", "--jobs", "1", "--metrics=off", "--disable-version-check", "--error", "--strict", "--no-git-ignore", `--project-root=${config.project}`, "--json", "--config", config.semgrep, ...config.paths], true);
       const report = object(JSON.parse(result));
       const scanned = object(report.paths).scanned;
       if (!Array.isArray(scanned) || !Array.isArray(report.errors) || !Array.isArray(report.results)) throw new Error("Incomplete Semgrep result.");
       const actual = new Set(scanned.filter((path): path is string => typeof path === "string").map(path => resolve(config.project, path)));
-      if (report.errors.length || report.results.length || config.phpFiles.some(path => !actual.has(path))) throw new Error("Semgrep findings, errors or incomplete PHP coverage.");
+      const missing = config.phpFiles.filter(path => !actual.has(path));
+      if (report.errors.length || report.results.length || missing.length) {
+        console.error(`Semgrep reported ${report.results.length} findings, ${report.errors.length} errors and ${missing.length} unchecked PHP files.`);
+        for (const path of missing.slice(0, 20)) console.error(`Unchecked file: ${relative(config.project, path)}`);
+        throw new Error("Semgrep findings, errors or incomplete PHP coverage.");
+      }
       console.info(`Semgrep checked ${config.phpFiles.length} owned PHP files.`);
       break;
     }

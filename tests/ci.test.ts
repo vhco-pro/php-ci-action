@@ -82,7 +82,10 @@ test.each(["syntax", "style", "types", "tests", "psalm", "audit"] as const)("%s 
 test("Semgrep requires every owned PHP file, clean parser results and zero findings", async () => {
   const config = validate(environment);
   const good = { results: [], errors: [], paths: { scanned: config.phpFiles } };
-  await check("semgrep", config, () => Promise.resolve({ exitCode: 0, stdout: JSON.stringify(good), stderr: "" }));
+  await check("semgrep", config, command => {
+    expect(command).toContain(`--project-root=${config.project}`);
+    return Promise.resolve({ exitCode: 0, stdout: JSON.stringify(good), stderr: "" });
+  });
   for (const report of [
     { ...good, errors: [{ type: "ParseError" }] },
     { ...good, results: [{ check_id: "fixture" }] },
