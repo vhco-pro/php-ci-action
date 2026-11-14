@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validate, check, supportedVersions, type CommandRunner } from "../scripts/ci";
+import { validate, check, supportedVersions, verifyChecksum, type CommandRunner } from "../scripts/ci";
 
 let workspace: string;
 let environment: Record<string, string>;
@@ -113,4 +113,11 @@ test("complete example supplies only declared inputs and all required inputs", (
   for (const [name, input] of Object.entries(action.inputs)) {
     if (input.required) expect(step?.with).toHaveProperty(name);
   }
+});
+
+
+test("download verification rejects a modified archive", () => {
+  const emptyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+  expect(() => verifyChecksum(new Uint8Array(), emptyHash)).not.toThrow();
+  expect(() => verifyChecksum(new Uint8Array([1]), emptyHash)).toThrow("checksum mismatch");
 });

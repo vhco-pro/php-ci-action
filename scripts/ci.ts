@@ -141,10 +141,18 @@ export async function check(mode: Mode, config: Configuration, runner: CommandRu
   }
 }
 
+export function verifyChecksum(data: Uint8Array, expected: string): void {
+  const actual = createHash("sha256").update(data).digest("hex");
+  if (actual !== expected) throw new Error("Gitleaks checksum mismatch.");
+}
+
 async function install(config: Configuration): Promise<void> {
   const run = (command: string[]) => requireSuccess(command, config.project, execute);
   const version = (await run(["php", "-r", "echo PHP_VERSION;"])).trim();
   if (version !== config.phpVersion) throw new Error("The installed PHP version differs from the approved input.");
+  if (config.extensions) {
+    await run(["php", "-r", "foreach (array_slice($argv, 1) as $extension) { if (!extension_loaded($extension)) { fwrite(STDERR, \"Required extension is unavailable\\n\"); exit(1); } }", ...config.extensions.split(",")]);
+  }
   const composer = await run(["composer", "--version", "--no-ansi"]);
   if (!composer.startsWith(`Composer version ${String(tools.composer)} `)) throw new Error("Unexpected Composer version.");
   await run(["composer", "validate", "--strict", "--no-check-publish"]);
@@ -161,7 +169,7 @@ async function install(config: Configuration): Promise<void> {
   const response = await fetch(`https://github.com/gitleaks/gitleaks/releases/download/v${releaseVersion}/gitleaks_${releaseVersion}_linux_x64.tar.gz`, { signal: AbortSignal.timeout(60_000) });
   if (!response.ok) throw new Error("Gitleaks download failed.");
   const data = Buffer.from(await response.arrayBuffer());
-  if (createHash("sha256").update(data).digest("hex") !== gitleaks.sha256) throw new Error("Gitleaks checksum mismatch.");
+  verifyChecksum(data, String(gitleaks.sha256));
   const archive = join(root, "gitleaks.tar.gz");
   writeFileSync(archive, data, { mode: 0o600 });
   await run(["tar", "-xzf", archive, "-C", root, "gitleaks"]);

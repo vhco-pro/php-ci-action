@@ -4,9 +4,9 @@ The caller checks out its source with `fetch-depth: 0` and calls the action at a
 reviewed commit. The [example workflow](../examples/standalone/ci.yml) uses the current draft
 implementation. Update the ref deliberately after review and release.
 
-The repository is currently private. Cross-repository execution requires approved GitHub Actions
-access for the caller organization. That access-setting approval is pending. Source and local
-integration testing continue independently.
+The repository is currently private. The owner approved organization-level GitHub Actions
+access on 2026-11-14. Other vhco-pro repositories can invoke this action through GitHub's native
+private-action mechanism. Public visibility and release remain pending owner review.
 
 ## Project files
 
