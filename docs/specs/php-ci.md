@@ -51,7 +51,9 @@ The component will have its own CI, examples and independent review before consu
 with all implementation merges held for review.
 
 The shared PHP guidance is merged at `1edeb5f32d868bbe761ef3221f350634cd6ff022`.
-The action has no implementation or executed checks yet. Acceptance authorizes the feature claim,
+The action is implemented on its feature branch. Its Linux composites, defective fixtures and shared
+GitVersion dry run passed on both selected patches at `8bed7b3`. Independent review found secret-scan
+and empty-check coverage defects that require repair. Native first-consumer adoption remains pending. Acceptance authorizes the feature claim,
 implementation, tests and reviewable PR in this repository. Implementation merge, public visibility,
 version tags and release remain separate owner decisions. The plugin can execute its scans while this
 component is developed. Its correctness and scan evidence remain required before its own completion. Shared GitVersion controls both this action and the plugin release versions.
@@ -177,12 +179,16 @@ pins for review, keeping CI verification and publication authority distinct.
 ## Acceptance Criteria
 
 - [ ] AC-01: A Linux workflow invokes the composite from a separately checked-out action and a nested PHP consumer with documented inputs, correct runtime/extensions and no accidental writes outside owned setup/output paths.
+  Evidence: R-4 returned not verified at `8bed7b3`; its recorded proof requires follow-up.
 - [ ] AC-02: Syntax, coding-standard, static-analysis and behavior checks each execute against the intended owned files, accept a valid fixture and independently reject an appropriate defective fixture.
 - [ ] AC-03: Locked dependency auditing, Semgrep security analysis, Psalm taint analysis and redacted secret scanning execute with recorded versions, licenses, rules and coverage, using free tools without a required paid scanning account.
 - [ ] AC-04: The pipeline blocks on scanner findings and execution failures, including synthetic vulnerabilities or secrets, malformed configuration, empty expected coverage, missing tools and unavailable audit data, while narrow reviewed exceptions remain visible.
+  Evidence: R-4 returned not met at `8bed7b3`; its recorded proof requires follow-up.
 - [ ] AC-05: Tool setup and action dependencies are immutable, verified and discoverable by the repository's updater, and scripts, lock files, workflow permissions and diagnostics preserve the declared input and credential boundaries.
 - [ ] AC-06: A standalone PHP fixture and the OPNsense plugin demonstrate the same generic action interface, with native OPNsense tests retained in the plugin and complete checked examples and operator documentation.
+  Evidence: R-4 returned untested at `8bed7b3`; its recorded proof requires follow-up.
 - [ ] AC-07: Independent review and exact-head CI establish the accepted component and first-consumer behavior, while publication state and any pending cross-repository adoption remain explicit.
+  Evidence: R-4 returned not met at `8bed7b3`; its recorded proof requires follow-up.
 - [ ] AC-08: Release verification runs only after the component checks, obtains its version through the pinned shared GitVersion release workflow and uses its bundled policy, with dry runs creating no tags or releases.
 
 ## Test Plan
@@ -225,6 +231,9 @@ separate owner decisions.
 | 2026-11-14 | R-1 | spec | `574ab52b016d810b3c9a28a9b2a741ffbad22ba9` | unknown | procedural | Interface and blocking policy clarified. Runner and analyzer choices await owner decisions. Model identity not attested. |
 | 2026-11-14 | R-2 | spec | `2d9c3ae1fb0cc02810499c78474d45d0161c57d1` | unknown | procedural | NO FINDINGS. Model identity not attested. |
 | 2026-11-14 | R-2 | spec | `2d9c3ae1fb0cc02810499c78474d45d0161c57d1` | n/a | n/a | accepted by owner |
+| 2026-11-14 | R-3 | spec | `8bed7b357d3849a92d6c7c1ceb816561983eaf1b` | unknown | procedural | One summary-only nit. Model identity not attested. |
+| 2026-11-14 | R-3 | spec | `8bed7b357d3849a92d6c7c1ceb816561983eaf1b` | n/a | n/a | accepted by owner |
+| 2026-11-14 | R-4 | implementation | `8bed7b357d3849a92d6c7c1ceb816561983eaf1b` | unknown | procedural | Blocking secret and empty-check coverage defects. First-consumer proof pending. Model identity not attested. |
 
 ### R-1
 
@@ -245,6 +254,70 @@ PROPOSAL: Present the remaining consequential v1 scope and tool-selection choice
 ### R-2
 
 NO FINDINGS
+
+### R-3
+
+FINDING: F-01
+KIND: factual
+SEVERITY: nit
+WHERE: Context / Owner summary
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, docs/specs/php-ci.md line 54 still says the action has no implementation or executed checks. The same commit contains action.yml, scripts/ci.ts, tests and integration workflows. Task T3 records GitHub run 43582433477, whose read-only API response confirms success at 2c058210653ff167e37858696ebfd947c43f004b. This stale summary survived the revision that added implementation task evidence.
+PROPOSAL: Refresh the owner summary with the observed implementation and earlier CI results, naming the current-head verification and first-consumer or independent-review work that remains pending.
+
+### R-4
+
+CRITERION: AC-01 A Linux workflow invokes the composite from a separately checked-out action and a nested PHP consumer with documented inputs, correct runtime/extensions and no accidental writes outside owned setup/output paths.
+VERDICT: not verified
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, GitHub run https://github.com/vhco-pro/php-ci-action/actions/runs/43583160878 passed the actual nested composite on PHP 8.4.27 and 8.5.12. Local validation tests passed for paths containing spaces and rejected traversal and symlink escapes. The Test Plan's actual composite execution from a directory containing spaces and unchanged-fixture assertion are absent from the integration workflow, so those parts remain unverified.
+
+CRITERION: AC-02 Syntax, coding-standard, static-analysis and behavior checks each execute against the intended owned files, accept a valid fixture and independently reject an appropriate defective fixture.
+VERDICT: met
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, the actual GitHub composite passed the standalone source and tests on both declared PHP runtimes. I inspected run 43583160878 and observed the defective fixtures fail with PHP syntax, PHP_CodeSniffer style, PHPStan return-type and PHPUnit assertion diagnostics. Local bun run check also passed strict TypeScript checks, typed ESLint and 20 tests.
+
+CRITERION: AC-03 Locked dependency auditing, Semgrep security analysis, Psalm taint analysis and redacted secret scanning execute with recorded versions, licenses, rules and coverage, using free tools without a required paid scanning account.
+VERDICT: met
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, run 43583160878 executed Composer audit, Semgrep CE, Psalm taint analysis and Gitleaks on both runtimes. The run recorded successful dependency auditing, two-file Semgrep coverage, Psalm analysis and redacted Git history/tree scans. The positive probes exercised cross-function Psalm taint, the escaped filesystem-path Semgrep rule and a synthetic secret. Tool manifests, the hash-locked Python requirements and Composer lock record versions. The four Composer checkers declare MIT or BSD licences, and these command paths require no paid scanner account.
+
+CRITERION: AC-04 The pipeline blocks on scanner findings and execution failures, including synthetic vulnerabilities or secrets, malformed configuration, empty expected coverage, missing tools and unavailable audit data, while narrow reviewed exceptions remain visible.
+VERDICT: not met
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, I executed the actual check('secrets') function against isolated fixtures using checksum-verified Gitleaks 8.21.2. validate() selected both synthetic Secret.php files as owned source. The token under src/application failed the check, while the identical token under src/vendor passed because of the bundled allowlist. I also executed the locked PHPUnit and Psalm commands against empty configurations in owned containers. PHPUnit returned exit 0 with No tests executed, and Psalm returned exit 0 with No files analyzed. The wrapper accepted those exit statuses.
+
+CRITERION: AC-05 Tool setup and action dependencies are immutable, verified and discoverable by the repository's updater, and scripts, lock files, workflow permissions and diagnostics preserve the declared input and credential boundaries.
+VERDICT: met
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, source inspection and the real CI run established SHA-pinned setup/release actions, the approved PHP matrix, exact Composer identity, locked consumer tools, hash-required Semgrep installation and checksum-verified Gitleaks download. The archive-integrity test rejected changed bytes. I executed the custom-manager expressions and observed extraction of both PHP versions, Composer and Gitleaks from scripts/tools.yaml. Local hostile-input tests passed, and the real secret probe used full redaction. Source, index and refs remained unchanged throughout this review. Live updater scheduling was not assessed.
+
+CRITERION: AC-06 A standalone PHP fixture and the OPNsense plugin demonstrate the same generic action interface, with native OPNsense tests retained in the plugin and complete checked examples and operator documentation.
+VERDICT: untested
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, the standalone composite and example-input checks passed, and usage documentation is present. The owning feature and dispatch identify native plugin adoption as pending. No executed OPNsense consumer invocation of this assessed action commit was established in this review.
+
+CRITERION: AC-07 Independent review and exact-head CI establish the accepted component and first-consumer behavior, while publication state and any pending cross-repository adoption remain explicit.
+VERDICT: not met
+EVIDENCE: Exact-head run 43583160878 passed all component jobs at 8bed7b357d3849a92d6c7c1ceb816561983eaf1b. This independent review reproduced the security-coverage and empty-check defects recorded below. The native first-consumer proof remains pending. The repository and draft PR identify their in-progress publication state.
+
+CRITERION: AC-08 Release verification runs only after the component checks, obtains its version through the pinned shared GitVersion release workflow and uses its bundled policy, with dry runs creating no tags or releases.
+VERDICT: met
+EVIDENCE: At 8bed7b357d3849a92d6c7c1ceb816561983eaf1b, .github/workflows/release.yml orders the pinned shared gh-release-workflow after the reusable test workflow. Run 43583160878 passed that shared release job with dry-run true after both composite jobs and script checks. Its logs show the shared GitVersion calculation. GitHub API queries returned zero tags and zero releases. No local version calculator or GitVersion policy override is present.
+
+FINDING: F-01
+KIND: factual
+SEVERITY: blocking
+WHERE: scripts/security/gitleaks.toml:7; scripts/ci.ts:136-138; docs/usage.md:36; Design / Checks and results
+EVIDENCE: The bundled allowlist excludes every vendor and node_modules directory at any depth. In isolated fixtures at the assessed commit, validate() explicitly selected src/application/Secret.php and src/vendor/Secret.php as owned PHP files. The actual check('secrets') rejected the first synthetic token and accepted the identical token in the second file. Pinned upstream Gitleaks defaults detected the nested-vendor token when the bundled configuration was omitted. Evidence is retained in /tmp/php-ci-review.U52S0I/component-proof.log and upstream-nested-vendor.log. This suppresses selected application source through an exclusion documented for installed dependencies.
+PROPOSAL: Remove or narrow the blanket dependency exclusions so explicitly selected owned source remains scanned. Add a real nested-vendor secret regression and verify both working-tree and history coverage.
+
+FINDING: F-02
+KIND: factual
+SEVERITY: should-fix
+WHERE: scripts/ci.ts:94-101; scripts/ci.ts:117-126; tests/probe.ts:35-41; Design / Checks and results
+EVIDENCE: Semgrep runs through requireSuccess with silent=true. A real finding or scanner error produces a nonzero exit and throws before check() parses its JSON. Consequently the reporting branch executes only for a successful command, and real failures expose only semgrep failed with exit N. The CI positive probe demonstrates this generic message without a rule, file or location. No sanitized result file is retained, despite the design requiring retained sanitized results and visible findings.
+PROPOSAL: Parse and summarize Semgrep findings and errors before propagating its failed outcome. Preserve safe rule, relative path, location and error-category information while excluding source snippets and secret values, and add finding/error diagnostics tests.
+
+FINDING: F-03
+KIND: factual
+SEVERITY: blocking
+WHERE: scripts/ci.ts:100; scripts/ci.ts:113-114; tests/probe.ts:8-16; Design / Checks and results
+EVIDENCE: The PHPUnit and Psalm branches rely solely on exit status. I ran PHPUnit 13.4.7 on PHP 8.5.12 with an existing empty suite using the action's current flags. It returned exit 0 and No tests executed. Psalm 7.5.0 with the current taint-analysis flags and an existing empty project directory returned exit 0, No errors found and No files analyzed. The current wrapper therefore accepts required checks with zero executed coverage. Evidence is retained in /tmp/php-ci-review.U52S0I/phpunit-empty.log and psalm-empty.log.
+PROPOSAL: Enable PHPUnit's empty-suite failure and reject Psalm's zero-file analysis result. Add empty-suite and empty-analysis regressions alongside the existing positive and unsafe fixtures.
 
 ## Sources
 
