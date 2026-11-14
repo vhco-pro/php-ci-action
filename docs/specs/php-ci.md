@@ -1,7 +1,7 @@
 ---
-status: draft
-status_description: "Owner-selected Linux, patched PHP, Semgrep CE, Psalm and shared GitVersion scope awaiting final spec review."
-issue: null
+status: planned
+status_description: "Clean spec review and owner authorization recorded for implementation, pushes and CI; merges await review."
+issue: https://github.com/vhco-pro/php-ci-action/issues/1
 goal: "PHP consumers run reproducible blocking quality and security checks through one free-tool composite action."
 covers:
   - action.yml
@@ -195,7 +195,11 @@ pins for review, keeping CI verification and publication authority distinct.
 
 ## Tasks
 
-None yet. Tasks follow reviewed owner acceptance.
+- [ ] T1 `tests/ci.test.ts`, `tests/fixture/` - observe failures for absent input validation, checker dispatch, scanner outcomes and shared release wiring (AC-01, AC-02, AC-03, AC-04, AC-08)
+- [ ] T2 `action.yml`, `scripts/`, `package.json` - pass the input and command contract tests with patched runtime setup and all required checks (AC-01, AC-02, AC-03, AC-04, AC-05)
+- [ ] T3 `.github/workflows/`, `.github/renovate.json`, `examples/` - run real Linux composite fixtures on both patched runtimes, prove updater discovery and run shared GitVersion dry-run after checks (AC-01, AC-02, AC-03, AC-04, AC-05, AC-08)
+- [ ] T4 `README.md`, `AGENTS.md`, `tests/` - record native consumer inputs, compatibility and failure evidence and verify examples match the composite (AC-06, AC-07)
+- [ ] T5 `docs/specs/php-ci.md` - obtain independent implementation review, repair findings and push the reviewed PR with exact-head CI (AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-08)
 
 ## Open Questions
 
@@ -211,6 +215,8 @@ separate owner decisions.
 | Date | Review | Kind | Commit | Model | Isolation | Outcome |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-14 | R-1 | spec | `574ab52b016d810b3c9a28a9b2a741ffbad22ba9` | unknown | procedural | Interface and blocking policy clarified. Runner and analyzer choices await owner decisions. Model identity not attested. |
+| 2026-11-14 | R-2 | spec | `2d9c3ae1fb0cc02810499c78474d45d0161c57d1` | unknown | procedural | NO FINDINGS. Model identity not attested. |
+| 2026-11-14 | R-2 | spec | `2d9c3ae1fb0cc02810499c78474d45d0161c57d1` | n/a | n/a | accepted by owner |
 
 ### R-1
 
@@ -227,6 +233,10 @@ SEVERITY: should-fix
 WHERE: Context / Owner summary; Open Questions
 EVIDENCE: The Owner summary proposes Linux-only initial support, and Design allows a choice between Psalm and Semgrep CE. Open Questions says None while stating that the owner will review the proposed interface and Linux scope before acceptance. The pinned conventions/feature-documents.md Open questions section requires unsettled trade-offs to appear as owner questions and defines None as every question having been answered. The current owner instruction establishes a reusable VHCO action and free pipeline tooling, without choosing these additional boundaries.
 PROPOSAL: Present the remaining consequential v1 scope and tool-selection choices in the required concise question format, with a recommendation and costs. Fold the owner's answers into the design before recording acceptance.
+
+### R-2
+
+NO FINDINGS
 
 ## Sources
 
