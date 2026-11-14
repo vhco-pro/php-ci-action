@@ -1,7 +1,7 @@
 ---
-status: in-progress
+status: complete
 branch: feat/php-ci
-status_description: "Clean spec review and owner authorization recorded for implementation, pushes and CI; merges await review."
+status_description: "All eight criteria passed independent review and exact-head CI, including native plugin adoption. Merge and release await owner review."
 issue: https://github.com/vhco-pro/php-ci-action/issues/1
 goal: "PHP consumers run reproducible blocking quality and security checks through one free-tool composite action."
 covers:
