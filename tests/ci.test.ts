@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validate, check, type CommandRunner } from "../scripts/ci";
+import { validate, check, supportedVersions, type CommandRunner } from "../scripts/ci";
 
 let workspace: string;
 let environment: Record<string, string>;
@@ -20,7 +20,7 @@ beforeEach(() => {
   environment = {
     GITHUB_WORKSPACE: workspace,
     INPUT_PROJECT: "nested project",
-    INPUT_PHP: "8.5.12",
+    INPUT_PHP: supportedVersions()[1],
     INPUT_EXTENSIONS: "mbstring, dom",
     INPUT_PATHS: "src\ntests",
     INPUT_PHPCS: "phpcs.xml.dist",
@@ -36,7 +36,7 @@ afterEach(() => rmSync(workspace, { recursive: true, force: true }));
 test("validates a nested project with spaces and exact patched PHP", () => {
   const config = validate(environment);
   expect(config.project).toBe(join(workspace, "nested project"));
-  expect(config.phpVersion).toBe("8.5.12");
+  expect(config.phpVersion).toBe(supportedVersions()[1]);
   expect(config.phpFiles).toHaveLength(2);
   expect(config.extensions).toContain("dom");
 });

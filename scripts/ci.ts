@@ -28,6 +28,14 @@ function object(value: unknown): Record<string, unknown> {
 
 const tools = object(Bun.YAML.parse(readFileSync(join(import.meta.dir, "tools.yaml"), "utf8")));
 
+export function supportedVersions(): [string, string] {
+  if (typeof tools.php84 !== "string" || !/^8\.4\.\d+$/.test(tools.php84)
+      || typeof tools.php85 !== "string" || !/^8\.5\.\d+$/.test(tools.php85)) {
+    throw new Error("Invalid patched PHP matrix.");
+  }
+  return [tools.php84, tools.php85];
+}
+
 function inside(root: string, input: string): string {
   // eslint-disable-next-line no-control-regex -- Block control bytes before paths enter GitHub step output.
   if (/[\x00-\x1f\x7f]/.test(input)) throw new Error("Control characters are forbidden in paths.");
@@ -48,7 +56,7 @@ export function validate(env: Record<string, string | undefined>): Configuration
   const project = inside(workspace, env.INPUT_PROJECT ?? ".");
   if (!lstatSync(project).isDirectory()) throw new Error("Working directory must be a directory.");
   const phpVersion = env.INPUT_PHP ?? "";
-  if (![tools.php84, tools.php85].includes(phpVersion)) throw new Error("Select a declared patched PHP version.");
+  if (!supportedVersions().includes(phpVersion)) throw new Error("Select a declared patched PHP version.");
   const extensions = (env.INPUT_EXTENSIONS ?? "").split(",").map(item => item.trim()).filter(Boolean);
   if (extensions.some(item => !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(item))) throw new Error("Invalid PHP extension identifier.");
   const paths = (env.INPUT_PATHS ?? "src\ntests").split("\n").map(item => item.trim()).filter(Boolean).map(path => inside(project, path));
@@ -120,7 +128,7 @@ export async function check(mode: Mode, config: Configuration, runner: CommandRu
       if (shallow !== "false") throw new Error("Secret scanning requires a complete checkout.");
       const repository = realpathSync((await run(["git", "rev-parse", "--show-toplevel"], true)).trim());
       if (config.base) await run(["git", "merge-base", "--is-ancestor", config.base, "HEAD"], true);
-      const options = config.gitleaks ? ["--config", config.gitleaks] : [];
+      const options = ["--config", config.gitleaks ?? join(import.meta.dir, "security/gitleaks.toml")];
       await run(["gitleaks", "git", "--redact=100", "--no-banner", `--log-opts=${config.base ? `${config.base}..HEAD` : "HEAD"}`, ...options, repository]);
       await run(["gitleaks", "dir", "--redact=100", "--no-banner", ...options, config.project]);
       break;
@@ -158,8 +166,12 @@ async function install(config: Configuration): Promise<void> {
 
 if (import.meta.main) {
   try {
-    const config = validate(process.env);
     const mode = process.argv[2];
+    if (mode === "matrix") {
+      if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
+      appendFileSync(process.env.GITHUB_OUTPUT, `versions=${JSON.stringify(supportedVersions())}\n`);
+    } else {
+    const config = validate(process.env);
     if (mode === "validate") {
       if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
       appendFileSync(process.env.GITHUB_OUTPUT, `project=${config.project}\nphp-version=${config.phpVersion}\nextensions=${config.extensions}\ncomposer-version=${String(tools.composer)}\n`);
@@ -169,6 +181,7 @@ if (import.meta.main) {
       await check(mode as Mode, config);
     } else {
       throw new Error("Unknown PHP CI operation.");
+    }
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : "PHP CI failed.");

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/tools\\.yaml$/"],
+      "matchStrings": ["php84: \"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "git-tags",
+      "depNameTemplate": "https://github.com/php/php-src",
+      "extractVersionTemplate": "^php-(?<version>8\\.4\\.[0-9]+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/tools\\.yaml$/"],
+      "matchStrings": ["php85: \"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "git-tags",
+      "depNameTemplate": "https://github.com/php/php-src",
+      "extractVersionTemplate": "^php-(?<version>8\\.5\\.[0-9]+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/tools\\.yaml$/"],
+      "matchStrings": ["composer: \"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "composer/composer"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/tools\\.yaml$/"],
+      "matchStrings": ["gitleaks:\\s+version: \"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "gitleaks/gitleaks",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Installed development dependencies and Git metadata"
+paths = [ '''(^|/)(vendor|node_modules|\.git)/''' ]
