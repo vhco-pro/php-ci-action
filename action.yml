@@ -49,7 +49,7 @@ runs:
     - name: Validate project and patched runtime
       id: inputs
       shell: bash
-      env: &inputs
+      env:
         PHP_CI_ACTION: ${{ github.action_path }}
         INPUT_PROJECT: ${{ inputs.working-directory }}
         INPUT_PHP: ${{ inputs.php-version }}
@@ -73,39 +73,57 @@ runs:
         coverage: none
     - name: Install locked project tools and scanners
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" install
     - name: PHP syntax
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" syntax
     - name: Coding standard
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" style
     - name: PHPStan
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" types
     - name: PHPUnit
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" tests
     - name: Psalm security taint analysis
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" psalm
     - name: Composer dependency audit
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" audit
     - name: Semgrep security rules and coverage
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" semgrep
     - name: Redacted source and history secret scans
       shell: bash
-      env: *inputs
+      env:
+        PHP_CI_ACTION: ${{ github.action_path }}
+        PHP_CI_INPUTS_JSON: ${{ steps.inputs.outputs.inputs-json }}
       run: bun "$PHP_CI_ACTION/scripts/ci.ts" secrets
 branding:
   icon: check-circle
