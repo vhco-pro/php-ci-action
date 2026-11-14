@@ -191,7 +191,6 @@ pins for review, keeping CI verification and publication authority distinct.
 | AC-05 | Inspect manifests and updater configuration against every installed dependency and rule pin. Verify an incorrect checksum fails setup, and use hostile path/configuration inputs to confirm argument handling. Inspect workflow permissions, reports and Git diff for leaked fixtures or source mutation. |
 | AC-06 | Run the real composite on a standalone fixture and the plugin's reviewed source/configuration with host symbols prepared by the consumer. Validate example workflow input names and required values against action.yml. Confirm the plugin's native browser/package/restore jobs remain present and their evidence stays consumer-owned. |
 | AC-07 | Run repository checks and the real GitHub composite workflow at the PR head, retain the independent review and verify that the proposed plugin pin names the assessed component commit. Record any unapproved publication or merge as pending. |
-
 | AC-08 | Inspect and test workflow dependency/pin/permissions against the actual shared release contract. Run its dry-run path at the assessed commit and verify that version output is from GitVersion while tags/releases remain unchanged. Reject local version calculators, duplicate release owners and a release job independent of checks. |
 
 ## Tasks
