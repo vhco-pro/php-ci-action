@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validate, check, supportedVersions, verifyChecksum, type CommandRunner } from "../scripts/ci";
+import { validate, check, meetsPhpFloor, supportedVersions, verifyChecksum, type CommandRunner } from "../scripts/ci";
 
 let workspace: string;
 let environment: Record<string, string>;
@@ -40,7 +40,7 @@ afterEach(() => {
   rmSync(workspace, { recursive: true, force: true });
 });
 
-test("validates a nested project with spaces and exact patched PHP", () => {
+test("validates a nested project with spaces and a supported stable PHP patch", () => {
   const config = validate(environment);
   expect(config.project).toBe(join(workspace, "nested project"));
   expect(config.phpVersion).toBe(supportedVersions()[1]);
@@ -48,8 +48,24 @@ test("validates a nested project with spaces and exact patched PHP", () => {
   expect(config.extensions).toContain("dom");
 });
 
-test.each(["8.4", "8.5.8", "8.3.30", "8.6.0RC7", "8.5.12\nanything", "$(touch hacked)"])("rejects unsupported runtime %s", version => {
+test("accepts an explicit newer stable patch on the same PHP series", () => {
+  expect(validate({ ...environment, INPUT_PHP: "8.5.14" }).phpVersion).toBe("8.5.14");
+});
+
+test.each(["8.4", "8.4.27", "8.5.12", "8.3.30", "8.6.0", "8.5.14RC1", "8.5.13\n", "8.5.12\nanything", "$(touch hacked)"])("rejects unsupported runtime %s", version => {
   expect(() => validate({ ...environment, INPUT_PHP: version })).toThrow();
+});
+
+test.each([
+  ["8.5.13", "8.5.13", true],
+  ["8.5.14", "8.5.13", true],
+  ["8.5.13", "8.5.14", false],
+  ["8.4.28", "8.5.13", false],
+  ["8.6.0", "8.5.13", false],
+  ["8.5.14RC1", "8.5.13", false],
+  ["8.5.14\n", "8.5.13", false],
+])("checks installed PHP %s against requested minimum %s", (version, floor, expected) => {
+  expect(meetsPhpFloor(version, floor)).toBe(expected);
 });
 
 test("rejects project traversal and symlink escapes", () => {

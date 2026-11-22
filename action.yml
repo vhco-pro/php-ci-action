@@ -5,7 +5,7 @@ inputs:
     description: PHP project directory inside the caller checkout.
     default: .
   php-version:
-    description: Exact patched PHP version supported by this action revision.
+    description: Minimum stable PHP patch in a supported minor series.
     required: true
   extensions:
     description: Additional comma-separated PHP extension identifiers.
@@ -39,7 +39,7 @@ inputs:
 outputs:
   php-version:
     description: Resolved installed PHP version.
-    value: ${{ steps.php.outputs.php-version }}
+    value: ${{ steps.install.outputs.php-version }}
 runs:
   using: composite
   steps:
@@ -72,6 +72,7 @@ runs:
         tools: composer:${{ steps.inputs.outputs.composer-version }}
         coverage: none
     - name: Install locked project tools and scanners
+      id: install
       shell: bash
       env:
         PHP_CI_ACTION: ${{ github.action_path }}

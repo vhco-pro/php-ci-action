@@ -3,7 +3,10 @@
 Run PHP syntax, coding-standard, type and behavior checks, Psalm taint analysis,
 Composer auditing, Semgrep CE and redacted secret scans through one composite action.
 
-The action supports Linux x64 and the [declared patched PHP versions](scripts/tools.yaml).
+The action supports Linux x64 and the PHP minor series in [the runtime matrix](scripts/tools.yaml).
+Set `php-version` to a full stable patch at or above the minimum for that minor series. The
+installed interpreter must be on that series and at least as new as the requested patch.
+The action reports the actual checked interpreter version.
 Its command-line tools run locally in the job with free licences. The current implementation
 is under review in [PR #2](https://github.com/vhco-pro/php-ci-action/pull/2).
 
