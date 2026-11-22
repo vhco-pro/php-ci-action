@@ -1,0 +1,6 @@
+php84: "8.4.28"
+php85: "8.5.13"
+composer: "2.11.2"
+gitleaks:
+  version: "8.21.2"
+  sha256: "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba"
