@@ -36,6 +36,17 @@ export function supportedVersions(): [string, string] {
   return [tools.php84, tools.php85];
 }
 
+/** Compare stable patches within one supported minor series. */
+export function meetsPhpFloor(version: string, minimum: string): boolean {
+  const pattern = /^(8\.[45])\.(0|[1-9][0-9]*)$/;
+  const actual = pattern.exec(version);
+  const floor = pattern.exec(minimum);
+  if (!actual || !floor || actual[0] !== version || floor[0] !== minimum || actual[1] !== floor[1]) return false;
+  const patch = Number(actual[2]);
+  const minimumPatch = Number(floor[2]);
+  return Number.isSafeInteger(patch) && Number.isSafeInteger(minimumPatch) && patch >= minimumPatch;
+}
+
 function inside(root: string, input: string): string {
   // eslint-disable-next-line no-control-regex -- Block control bytes before paths enter GitHub step output.
   if (/[\x00-\x1f\x7f]/.test(input)) throw new Error("Control characters are forbidden in paths.");
@@ -56,7 +67,9 @@ export function validate(env: Record<string, string | undefined>): Configuration
   const project = inside(workspace, env.INPUT_PROJECT ?? ".");
   if (!lstatSync(project).isDirectory()) throw new Error("Working directory must be a directory.");
   const phpVersion = env.INPUT_PHP ?? "";
-  if (!supportedVersions().includes(phpVersion)) throw new Error("Select a declared patched PHP version.");
+  if (!supportedVersions().some(minimum => meetsPhpFloor(phpVersion, minimum))) {
+    throw new Error("Select a stable PHP patch at or above the minimum for an approved minor series.");
+  }
   const extensions = (env.INPUT_EXTENSIONS ?? "").split(",").map(item => item.trim()).filter(Boolean);
   if (extensions.some(item => !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(item))) throw new Error("Invalid PHP extension identifier.");
   const paths = (env.INPUT_PATHS ?? "src\ntests").split("\n").map(item => item.trim()).filter(Boolean).map(path => inside(project, path));
@@ -186,10 +199,10 @@ export function verifyChecksum(data: Uint8Array, expected: string): void {
   if (actual !== expected) throw new Error("Gitleaks checksum mismatch.");
 }
 
-async function install(config: Configuration): Promise<void> {
+async function install(config: Configuration): Promise<string> {
   const run = (command: string[]) => requireSuccess(command, config.project, execute);
   const version = (await run(["php", "-r", "echo PHP_VERSION;"])).trim();
-  if (version !== config.phpVersion) throw new Error("The installed PHP version differs from the approved input.");
+  if (!meetsPhpFloor(version, config.phpVersion)) throw new Error("Installed PHP is outside the requested minor series or below its patch minimum.");
   if (config.extensions) {
     await run(["php", "-r", "foreach (array_slice($argv, 1) as $extension) { if (!extension_loaded($extension)) { fwrite(STDERR, \"Required extension is unavailable\\n\"); exit(1); } }", ...config.extensions.split(",")]);
   }
@@ -215,6 +228,7 @@ async function install(config: Configuration): Promise<void> {
   await run(["tar", "-xzf", archive, "-C", root, "gitleaks"]);
   if (!process.env.GITHUB_PATH) throw new Error("GITHUB_PATH is required.");
   appendFileSync(process.env.GITHUB_PATH, `${join(environment, "bin")}\n${root}\n`);
+  return version;
 }
 
 if (import.meta.main) {
@@ -238,7 +252,9 @@ if (import.meta.main) {
         if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
         appendFileSync(process.env.GITHUB_OUTPUT, `project=${config.project}\nphp-version=${config.phpVersion}\nextensions=${config.extensions}\ncomposer-version=${String(tools.composer)}\ninputs-json=${JSON.stringify(Object.fromEntries(inputKeys.map(key => [key, environment[key]])))}\n`);
       } else if (mode === "install") {
-        await install(config);
+        if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
+        const version = await install(config);
+        appendFileSync(process.env.GITHUB_OUTPUT, `php-version=${version}\n`);
       } else if (["syntax", "style", "types", "tests", "psalm", "audit", "semgrep", "secrets"].includes(mode ?? "")) {
         await check(mode as Mode, config);
       } else {
